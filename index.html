@@ -4,6 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>إدارة الديون الذكي</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script>
+  // إعدادات قاعدة البيانات الخاصة بك
+  const firebaseConfig = {
+    apiKey: "AIzaSyCK6C_2YE3Izu5G09TOKLLWN6ULfdN1xH4",
+    authDomain: "mdmd-26ac4.firebaseapp.com",
+    databaseURL: "https://mdmd-26ac4-default-rtdb.firebaseio.com",
+    projectId: "mdmd-26ac4",
+    storageBucket: "mdmd-26ac4.firebasestorage.app",
+    messagingSenderId: "29376570807",
+    appId: "1:29376570807:web:e9730121b61fc05f37f432",
+    measurementId: "G-0SF79HRTYD"
+  };
+
+  // تهيئة Firebase
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  const database = firebase.database();
+</script>
+
+
+
+
+ 
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

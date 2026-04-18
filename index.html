@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>إدارة الديون الذكي</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f0e8; --surface: #faf7f2; --card: #ffffff;
+    --green: #1a6b3c; --green-light: #e8f5ee; --green-mid: #2d8a55;
+    --red: #c0392b; --red-light: #fdecea;
+    --orange: #e67e22; --orange-light: #fef0e3;
+    --gold: #c9960c; --gold-light: #fef9e7;
+    --blue: #1a5fa8; --blue-light: #e8f0fd;
+    --purple: #7b2d8b; --purple-light: #f5eaff;
+    --text: #1a1a1a; --text-mid: #555; --text-dim: #999;
+    --border: #e2ddd5; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --font: 'Tajawal', sans-serif;
+  }
+  body { background: var(--bg); font-family: var(--font); color: var(--text); min-height: 100vh; }
+
+  /* ===== LOCK SCREEN ===== */
+  #lockScreen {
+    position: fixed; inset: 0; z-index: 999;
+    background: linear-gradient(135deg, var(--green) 0%, #0a3d20 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px;
+  }
+  #lockScreen.hidden { display: none; }
+  .lock-logo { font-size: 52px; margin-bottom: 10px; }
+  .lock-title { font-size: 28px; font-weight: 900; color: #fff; margin-bottom: 4px; }
+  .lock-sub { font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 40px; }
+  .lock-card {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px; padding: 28px; width: 100%; max-width: 340px; backdrop-filter: blur(10px);
+  }
+  .lock-label { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 10px; font-weight: 700; }
+  .lock-attempts { font-size: 12px; color: rgba(255,165,0,0.9); margin-bottom: 8px; min-height: 16px; }
+  .lock-input {
+    width: 100%; padding: 14px 16px; border-radius: 12px;
+    border: 1.5px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.12);
+    color: #fff; font-family: var(--font); font-size: 20px; outline: none;
+    text-align: center; letter-spacing: 8px; margin-bottom: 16px; transition: border-color 0.2s;
+  }
+  .lock-input::placeholder { letter-spacing: 2px; font-size: 14px; color: rgba(255,255,255,0.4); }
+  .lock-input:focus { border-color: rgba(255,255,255,0.6); }
+  .lock-input.shake { animation: shakeLock 0.4s ease; border-color: #ff6b6b; }
+  @keyframes shakeLock { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .lock-btn {
+    width: 100%; background: #fff; color: var(--green); border: none; border-radius: 12px;
+    padding: 14px; font-family: var(--font); font-size: 16px; font-weight: 900; cursor: pointer;
+  }
+  .lock-btn:hover { background: #f0fff5; }
+  .lock-btn:disabled { background: #ccc; color: #888; cursor: not-allowed; }
+  .lock-error { color: #ff8a80; font-size: 13px; text-align: center; margin-top: 10px; min-height: 18px; }
+  .lockout-timer { color: #ffcc80; font-size: 13px; text-align: center; margin-top: 6px; }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    background: var(--card); border-top: 1.5px solid var(--border);
+    display: flex; max-width: 500px; margin: 0 auto;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    padding: 10px 4px 8px; cursor: pointer; transition: 0.18s; border: none; background: transparent;
+    font-family: var(--font); color: var(--text-dim); font-size: 10px; font-weight: 700; gap: 3px;
+  }
+  .nav-item .nav-icon { font-size: 20px; }
+  .nav-item.active { color: var(--green); }
+  .nav-item.active .nav-icon { transform: scale(1.1); }
+
+  /* ===== PAGES ===== */
+  .page { display: none; padding-bottom: 80px; }
+  .page.active { display: block; }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: linear-gradient(135deg, var(--green) 0%, #0f4a28 100%);
+    padding: 20px 20px 24px; position: relative; overflow: hidden;
+  }
+  .header::before { content:''; position:absolute; top:-40px; left:-40px; width:160px; height:160px; border-radius:50%; background:rgba(255,255,255,0.04); }
+  .header::after { content:''; position:absolute; bottom:-60px; right:-20px; width:200px; height:200px; border-radius:50%; background:rgba(255,255,255,0.03); }
+  .header-inner { position: relative; z-index: 1; }
+  .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0; }
+  .app-name { font-size: 22px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .app-subtitle { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+  .header-btns { display: flex; gap: 6px; }
+  .hdr-btn {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85); border-radius: 10px; padding: 7px 11px;
+    font-family: var(--font); font-size: 12px; cursor: pointer; transition: 0.18s;
+  }
+  .hdr-btn:hover { background: rgba(255,255,255,0.22); }
+  .total-banner {
+    margin-top: 16px; background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 14px;
+    padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .total-label { font-size: 13px; color: rgba(255,255,255,0.7); }
+  .total-amount { font-size: 22px; font-weight: 900; color: #fff; direction: ltr; }
+  .total-amount span { font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.7); margin-right: 4px; }
+  .total-count { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+  .sync-bar { display: flex; gap: 7px; margin-top: 10px; }
+  .sync-btn {
+    flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+    color: #fff; border-radius: 10px; padding: 9px 4px; font-family: var(--font);
+    font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.18s;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .sync-btn:hover { background: rgba(255,255,255,0.2); }
+
+  /* ===== MAIN ===== */
+  .main { padding: 16px 16px 0; max-width: 500px; margin: 0 auto; }
+  .search-bar { display: flex; gap: 8px; margin-bottom: 10px; }
+  .search-wrap { flex: 1; position: relative; }
+  .search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 15px; pointer-events: none; }
+  .search-input {
+    width: 100%; padding: 11px 38px 11px 14px; border: 1.5px solid var(--border);
+    border-radius: 12px; background: var(--card); font-family: var(--font);
+    font-size: 15px; color: var(--text); outline: none; transition: 0.2s; box-shadow: var(--shadow);
+  }
+  .search-input:focus { border-color: var(--green-mid); box-shadow: 0 0 0 3px rgba(45,138,85,0.12); }
+  .search-input::placeholder { color: var(--text-dim); }
+  .add-btn {
+    background: var(--green); color: #fff; border: none; border-radius: 12px;
+    padding: 0 16px; font-size: 22px; cursor: pointer; transition: 0.2s;
+    box-shadow: var(--shadow); display: flex; align-items: center; min-width: 46px;
+  }
+  .add-btn:hover { background: var(--green-mid); }
+
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    white-space: nowrap; padding: 7px 14px; border-radius: 20px;
+    border: 1.5px solid var(--border); background: var(--card);
+    font-family: var(--font); font-size: 13px; font-weight: 700;
+    color: var(--text-dim); cursor: pointer; transition: 0.18s; flex-shrink: 0;
+  }
+  .filter-chip.active { background: var(--green); border-color: var(--green); color: #fff; }
+  .filter-chip.red.active { background: var(--red); border-color: var(--red); color: #fff; }
+  .filter-chip.orange.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .section-title { font-size: 12px; font-weight: 700; color: var(--text-dim); letter-spacing: 1.5px; }
+  .sort-select {
+    border: 1.5px solid var(--border); background: var(--card); border-radius: 8px;
+    padding: 5px 10px; font-family: var(--font); font-size: 12px; color: var(--text-mid); outline: none; cursor: pointer;
+  }
+
+  .customer-list { display: flex; flex-direction: column; gap: 10px; }
+  .customer-card {
+    background: var(--card); border-radius: 16px; border: 1.5px solid var(--border);
+    padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; transition: 0.18s; box-shadow: var(--shadow); animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .customer-card:hover { border-color: var(--green-mid); box-shadow: 0 4px 20px rgba(45,138,85,0.15); transform: translateX(-2px); }
+  .customer-card.overdue { border-color: var(--red); background: #fffafa; }
+  .customer-card.due-soon { border-color: var(--orange); background: #fffcf8; }
+  .cust-info { display: flex; align-items: center; gap: 12px; }
+  .cust-avatar {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--green-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 900; color: var(--green); flex-shrink: 0;
+  }
+  .cust-avatar.overdue { background: var(--red-light); color: var(--red); }
+  .cust-avatar.due-soon { background: var(--orange-light); color: var(--orange); }
+  .cust-name { font-size: 15px; font-weight: 700; }
+  .cust-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .due-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; margin-top: 3px; }
+  .due-badge.overdue { background: var(--red-light); color: var(--red); }
+  .due-badge.due-soon { background: var(--orange-light); color: var(--orange); }
+  .due-badge.ok { background: var(--green-light); color: var(--green); }
+  .worker-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-top: 3px; margin-right: 3px; background: var(--blue-light); color: var(--blue); }
+  .cust-debt { text-align: left; direction: ltr; }
+  .debt-amount { font-size: 17px; font-weight: 900; color: var(--red); }
+  .debt-amount.zero { color: var(--green); }
+  .debt-currency { font-size: 11px; color: var(--text-dim); display: block; text-align: left; }
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--text-dim); }
+  .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+
+  /* ===== MODALS ===== */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    z-index: 100; display: none; align-items: flex-end; justify-content: center;
+  }
+  .overlay.active { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 24px 24px 0 0;
+    padding: 24px 18px 36px; width: 100%; max-width: 500px;
+    animation: slideUp 0.3s cubic-bezier(0.34,1.2,0.64,1); max-height: 92vh; overflow-y: auto;
+  }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+  .modal-title { font-size: 19px; font-weight: 900; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+  .modal-top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .back-btn {
+    background: var(--green-light); color: var(--green); border: none; border-radius: 10px;
+    padding: 8px 14px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .back-btn:hover { background: #d0edda; }
+  .edit-info-btn {
+    background: var(--gold-light); color: var(--gold); border: none; border-radius: 10px;
+    padding: 8px 12px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+
+  .detail-header {
+    background: linear-gradient(135deg, var(--green) 0%, #0f4a28 100%);
+    border-radius: 16px; padding: 18px; color: #fff; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .detail-name { font-size: 19px; font-weight: 900; }
+  .detail-sub { font-size: 12px; opacity: 0.7; margin-top: 3px; }
+  .detail-total { text-align: left; direction: ltr; }
+  .detail-total-num { font-size: 26px; font-weight: 900; }
+  .detail-total-label { font-size: 11px; opacity: 0.65; }
+
+  .action-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .action-btn {
+    border: none; border-radius: 12px; padding: 11px 6px; font-family: var(--font);
+    font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.18s;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .action-btn .icon { font-size: 18px; }
+  .btn-add-debt { background: var(--red-light); color: var(--red); }
+  .btn-reduce-debt { background: var(--green-light); color: var(--green); }
+  .btn-clear-debt { background: var(--gold-light); color: var(--gold); }
+
+  .debt-log-title { font-size: 12px; font-weight: 700; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 8px; }
+  .debt-log { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow-y: auto; }
+  .debt-item {
+    background: var(--card); border-radius: 10px; padding: 10px 13px;
+    display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);
+  }
+  .debt-item-info { font-size: 13px; }
+  .debt-item-note { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .debt-item-worker { font-size: 10px; color: var(--blue); margin-top: 2px; background: var(--blue-light); display: inline-block; padding: 1px 6px; border-radius: 6px; }
+  .debt-item-amount { font-size: 14px; font-weight: 700; direction: ltr; }
+  .debt-item-amount.plus { color: var(--red); }
+  .debt-item-amount.minus { color: var(--green); }
+  .no-log { text-align: center; padding: 18px; color: var(--text-dim); font-size: 13px; }
+
+  .btn-whatsapp {
+    width: 100%; border: none; background: #25D366; color: #fff; border-radius: 12px;
+    padding: 13px; font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: 0.18s; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 14px rgba(37,211,102,0.25);
+  }
+  .btn-whatsapp:hover { background: #1ebe5d; }
+  .btn-whatsapp.disabled { background: #ccc; color: #888; box-shadow: none; cursor: not-allowed; }
+  .btn-print {
+    width: 100%; border: 1.5px solid var(--green); background: transparent; color: var(--green);
+    border-radius: 12px; padding: 12px; font-family: var(--font); font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: 0.18s; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-print:hover { background: var(--green-light); }
+  .btn-delete-cust {
+    width: 100%; border: 1.5px solid var(--red); background: transparent; color: var(--red);
+    border-radius: 12px; padding: 12px; font-family: var(--font); font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: 0.18s; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-delete-cust:hover { background: var(--red-light); }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 13px; font-weight: 700; color: var(--text-mid); margin-bottom: 6px; display: block; }
+  .form-input {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px;
+    background: var(--card); font-family: var(--font); font-size: 15px; color: var(--text); outline: none; transition: 0.2s;
+  }
+  .form-input:focus { border-color: var(--green-mid); box-shadow: 0 0 0 3px rgba(45,138,85,0.12); }
+  .form-input[type=number] { direction: ltr; text-align: right; }
+  .form-input[type=date] { direction: ltr; }
+  .submit-btn {
+    width: 100%; background: var(--green); color: #fff; border: none; border-radius: 14px;
+    padding: 14px; font-family: var(--font); font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; margin-top: 4px;
+  }
+  .submit-btn:hover { background: var(--green-mid); }
+  .cancel-link { display: block; text-align: center; margin-top: 12px; color: var(--text-dim); font-size: 14px; cursor: pointer; padding: 8px; }
+  .edit-note {
+    background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px;
+    padding: 9px 13px; font-size: 12px; color: #7c6000; margin-bottom: 16px; line-height: 1.5;
+  }
+  .confirm-modal { max-width: 340px; border-radius: 20px; padding: 28px 22px; margin: auto; }
+  .overlay.confirm-overlay { align-items: center; }
+  .confirm-icon { font-size: 38px; text-align: center; margin-bottom: 12px; }
+  .confirm-msg { text-align: center; font-size: 15px; margin-bottom: 22px; line-height: 1.6; }
+  .confirm-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .confirm-yes { background: var(--red); color: #fff; border: none; border-radius: 12px; padding: 12px; font-family: var(--font); font-size: 15px; font-weight: 700; cursor: pointer; }
+  .confirm-no { background: var(--border); color: var(--text); border: none; border-radius: 12px; padding: 12px; font-family: var(--font); font-size: 15px; font-weight: 700; cursor: pointer; }
+
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1a1a1a; color: #fff; padding: 11px 20px; border-radius: 50px;
+    font-size: 14px; font-weight: 500; z-index: 9999; transition: 0.3s; opacity: 0; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ===== WORKERS PAGE ===== */
+  .page-header {
+    background: linear-gradient(135deg, var(--blue) 0%, #0d3d6b 100%);
+    padding: 20px 20px 24px; position: relative; overflow: hidden;
+  }
+  .page-header.purple { background: linear-gradient(135deg, var(--purple) 0%, #4a1a58 100%); }
+  .page-header-title { font-size: 22px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .page-header-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+
+  .workers-list { padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 500px; margin: 0 auto; }
+  .worker-card {
+    background: var(--card); border-radius: 16px; border: 1.5px solid var(--border);
+    padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;
+    box-shadow: var(--shadow); animation: fadeIn 0.3s ease;
+  }
+  .worker-info { display: flex; align-items: center; gap: 12px; }
+  .worker-badge {
+    width: 46px; height: 46px; border-radius: 14px; background: var(--blue-light);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 900; color: var(--blue); flex-shrink: 0; border: 2px solid #c5d9f5;
+  }
+  .worker-badge .wid { font-size: 10px; font-weight: 700; color: var(--blue); margin-top: -2px; }
+  .worker-name { font-size: 15px; font-weight: 700; }
+  .worker-id-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .worker-role { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-top: 3px; }
+  .worker-role.admin { background: var(--gold-light); color: var(--gold); }
+  .worker-role.worker { background: var(--blue-light); color: var(--blue); }
+  .worker-actions { display: flex; gap: 6px; }
+  .worker-action-btn {
+    padding: 7px 12px; border: none; border-radius: 10px; font-family: var(--font);
+    font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.18s;
+  }
+  .worker-action-btn.edit { background: var(--gold-light); color: var(--gold); }
+  .worker-action-btn.del { background: var(--red-light); color: var(--red); }
+
+  .add-worker-btn {
+    background: var(--blue); color: #fff; border: none; border-radius: 14px;
+    padding: 14px; font-family: var(--font); font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: 0.2s; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 0 16px 12px; width: calc(100% - 32px);
+  }
+  .add-worker-btn:hover { background: #1a52a0; }
+
+  /* ===== PRODUCTS PAGE ===== */
+  .products-list { padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 500px; margin: 0 auto; }
+  .product-card {
+    background: var(--card); border-radius: 16px; border: 1.5px solid var(--border);
+    padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;
+    box-shadow: var(--shadow); animation: fadeIn 0.3s ease;
+  }
+  .product-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+  .product-icon {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--purple-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .product-name { font-size: 15px; font-weight: 700; }
+  .product-cat { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .product-price { text-align: left; direction: ltr; }
+  .price-amount { font-size: 18px; font-weight: 900; color: var(--purple); }
+  .price-currency { font-size: 11px; color: var(--text-dim); display: block; }
+  .product-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .product-action-btn {
+    padding: 5px 10px; border: none; border-radius: 8px; font-family: var(--font);
+    font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.18s;
+  }
+  .product-action-btn.edit { background: var(--gold-light); color: var(--gold); }
+  .product-action-btn.del { background: var(--red-light); color: var(--red); }
+  .product-card-inner { flex: 1; }
+  .product-price-row { display: flex; justify-content: space-between; align-items: center; }
+
+  .add-product-btn {
+    background: var(--purple); color: #fff; border: none; border-radius: 14px;
+    padding: 14px; font-family: var(--font); font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 0 16px 12px; width: calc(100% - 32px);
+  }
+  .add-product-btn:hover { background: #6a2078; }
+
+  .product-search-bar { padding: 12px 16px 0; max-width: 500px; margin: 0 auto; }
+  .cat-filter { padding: 8px 16px; display: flex; gap: 6px; overflow-x: auto; max-width: 500px; margin: 0 auto; }
+  .cat-filter::-webkit-scrollbar { display: none; }
+  .cat-chip {
+    white-space: nowrap; padding: 6px 12px; border-radius: 16px;
+    border: 1.5px solid var(--border); background: var(--card);
+    font-family: var(--font); font-size: 12px; font-weight: 700;
+    color: var(--text-dim); cursor: pointer; transition: 0.18s; flex-shrink: 0;
+  }
+  .cat-chip.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+  /* ===== SECURITY INFO ===== */
+  .security-info {
+    background: var(--green-light); border: 1px solid #b2dfca; border-radius: 12px;
+    padding: 10px 14px; font-size: 12px; color: var(--green); margin-bottom: 14px; line-height: 1.6;
+  }
+
+  @media print {
+    body * { visibility: hidden; }
+    #printArea, #printArea * { visibility: visible; }
+    #printArea { position: fixed; inset: 0; background: #fff; padding: 28px; font-family: Tajawal,sans-serif; direction: rtl; }
+  }
+  #printArea { display: none; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCK6C_2YE3Izu5G09TOKLLWN6ULfdN1xH4",
+    authDomain: "mdmd-26ac4.firebaseapp.com",
+    databaseURL: "https://mdmd-26ac4-default-rtdb.firebaseio.com",
+    projectId: "mdmd-26ac4",
+    storageBucket: "mdmd-26ac4.firebasestorage.app",
+    messagingSenderId: "29376570807",
+    appId: "1:29376570807:web:e9730121b61fc05f37f432",
+    measurementId: "G-0SF79HRTYD"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Expose Firebase helpers globally so the rest of the script can use them
+  window._fbDb = db;
+  window._fbRef = ref;
+  window._fbSet = set;
+  window._fbGet = get;
+  window._fbChild = child;
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<body>
+
+<!-- ===== LOCK SCREEN ===== -->
+<div id="lockScreen">
+  <div class="lock-logo">💳</div>
+  <div class="lock-title">إدارة الديون الذكي</div>
+  <div class="lock-sub">النظام المتكامل للإدارة</div>
+  <div class="lock-card">
+    <div class="lock-label">🔒 أدخل كلمة المرور</div>
+    <div class="lock-attempts" id="lockAttempts"></div>
+    <input class="lock-input" type="password" id="lockInput" placeholder="••••" maxlength="30"
+      onkeydown="if(event.key==='Enter') checkPassword()">
+    <button class="lock-btn" id="lockBtn" onclick="checkPassword()">دخول ←</button>
+    <div class="lock-error" id="lockError"></div>
+    <div class="lockout-timer" id="lockoutTimer"></div>
+  </div>
+  <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:18px;">🔐 مشفر بـ AES-256 | 🔒 Hash آمن</div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="appContent" style="display:none">
+
+<!-- ===== PAGE: DEBTS ===== -->
+<div class="page active" id="pageDebts">
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-top">
+        <div>
+          <div class="app-name">💳 إدارة الديون الذكي</div>
+          <div class="app-subtitle" id="currentWorkerLabel">سجل ديون الزبائن</div>
+        </div>
+        <div class="header-btns">
+          <button class="hdr-btn" onclick="openChangePw()">🔑</button>
+          <button class="hdr-btn" onclick="lockApp()">🔒 قفل</button>
+        </div>
+      </div>
+      <div class="total-banner">
+        <div>
+          <div class="total-label">إجمالي الديون المستحقة</div>
+          <div class="total-count" id="custCount">0 زبون</div>
+        </div>
+        <div class="total-amount"><span>د.ع</span><span id="grandTotal">0</span></div>
+      </div>
+      <div class="sync-bar">
+        <button class="sync-btn" onclick="exportData()">📤 تصدير</button>
+        <button class="sync-btn" onclick="document.getElementById('importFile').click()">📥 استيراد</button>
+        <button class="sync-btn" onclick="printAllDebts()">🖨️ طباعة</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" id="searchInput" placeholder="ابحث عن زبون..." oninput="renderList()">
+      </div>
+      <button class="add-btn" onclick="openAddCustomer()">＋</button>
+    </div>
+    <div class="filter-bar">
+      <button class="filter-chip active" onclick="setFilter('all',this)">الكل</button>
+      <button class="filter-chip red" onclick="setFilter('overdue',this)">🔴 متأخر</button>
+      <button class="filter-chip orange" onclick="setFilter('due-soon',this)">🟡 يقترب</button>
+      <button class="filter-chip" onclick="setFilter('has-debt',this)">عليه دين</button>
+      <button class="filter-chip" onclick="setFilter('settled',this)">✅ مسوّى</button>
+    </div>
+    <div class="section-header">
+      <div class="section-title">قائمة الزبائن</div>
+      <select class="sort-select" id="sortSelect" onchange="renderList()">
+        <option value="recent">الأحدث</option>
+        <option value="debt-desc">أعلى دين</option>
+        <option value="debt-asc">أقل دين</option>
+        <option value="name">الاسم أ-ي</option>
+        <option value="due">الاستحقاق</option>
+      </select>
+    </div>
+    <div class="customer-list" id="customerList"></div>
+  </div>
+</div>
+
+<!-- ===== PAGE: WORKERS ===== -->
+<div class="page" id="pageWorkers">
+  <div class="page-header">
+    <div class="page-header-title">👷 إدارة العمال</div>
+    <div class="page-header-sub">كل عامل له رقم هوية خاص به (1-9)</div>
+  </div>
+  <div class="workers-list" id="workersList">
+    <div class="empty-state"><div class="emoji">👷</div><p>لا يوجد عمال بعد</p></div>
+  </div>
+  <div style="padding: 0 16px;">
+    <button class="add-worker-btn" onclick="openAddWorker()" id="addWorkerBtnMain">＋ إضافة عامل جديد</button>
+  </div>
+</div>
+
+<!-- ===== PAGE: PRODUCTS ===== -->
+<div class="page" id="pageProducts">
+  <div class="page-header purple">
+    <div class="page-header-title">🛍️ أسعار المنتجات</div>
+    <div class="page-header-sub">مرجع سريع لأسعار جميع المنتجات</div>
+  </div>
+  <div class="product-search-bar">
+    <div class="search-wrap" style="position:relative;">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" type="text" id="productSearch" placeholder="ابحث عن منتج..." oninput="renderProducts()">
+    </div>
+  </div>
+  <div class="cat-filter" id="catFilter">
+    <button class="cat-chip active" onclick="setCatFilter('all',this)">الكل</button>
+  </div>
+  <div class="products-list" id="productsList">
+    <div class="empty-state"><div class="emoji">🛍️</div><p>لا توجد منتجات بعد</p></div>
+  </div>
+  <div style="padding: 0 16px;">
+    <button class="add-product-btn" onclick="openAddProduct()">＋ إضافة منتج جديد</button>
+  </div>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<div class="bottom-nav">
+  <button class="nav-item active" onclick="switchPage('pageDebts',this)">
+    <span class="nav-icon">📋</span>الديون
+  </button>
+  <button class="nav-item" onclick="switchPage('pageWorkers',this)" id="navWorkers">
+    <span class="nav-icon">👷</span>العمال
+  </button>
+  <button class="nav-item" onclick="switchPage('pageProducts',this)">
+    <span class="nav-icon">🛍️</span>المنتجات
+  </button>
+</div>
+
+</div><!-- end appContent -->
+
+<!-- ===== MODALS ===== -->
+
+<!-- Detail Modal -->
+<div class="overlay" id="detailOverlay">
+  <div class="modal">
+    <div class="modal-top-bar">
+      <button class="back-btn" onclick="closeModal('detailOverlay')">&#8594; رجوع</button>
+      <button class="edit-info-btn" onclick="openEditInfo()">✏️ تعديل</button>
+    </div>
+    <div class="detail-header">
+      <div>
+        <div class="detail-name" id="detailName">-</div>
+        <div class="detail-sub" id="detailSub">-</div>
+        <div class="detail-sub" id="detailDue" style="display:none"></div>
+      </div>
+      <div class="detail-total">
+        <div class="detail-total-num" id="detailTotal">0</div>
+        <div class="detail-total-label">د.ع</div>
+      </div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn btn-add-debt" onclick="openDebtForm('add')"><span class="icon">➕</span>إضافة دين</button>
+      <button class="action-btn btn-reduce-debt" onclick="openDebtForm('reduce')"><span class="icon">➖</span>تنقيص</button>
+      <button class="action-btn btn-clear-debt" onclick="confirmClearDebt()"><span class="icon">✅</span>تسوية</button>
+    </div>
+    <div class="debt-log-title">📋 سجل المعاملات</div>
+    <div class="debt-log" id="debtLog"></div>
+    <button class="btn-whatsapp" id="whatsappBtn" onclick="sendWhatsApp()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      تذكير عبر واتساب
+    </button>
+    <button class="btn-print" onclick="printCustomer()">🖨️ طباعة كشف الزبون</button>
+    <button class="btn-delete-cust" onclick="confirmDeleteCustomer()">🗑️ حذف هذا الزبون</button>
+  </div>
+</div>
+
+<!-- Add Customer Modal -->
+<div class="overlay" id="addCustOverlay" onclick="handleOverlayClick(event,'addCustOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">👤 إضافة زبون جديد</div>
+    <div class="form-group"><label class="form-label">اسم الزبون *</label><input class="form-input" type="text" id="newCustName" placeholder="مثال: أبو محمد"></div>
+    <div class="form-group"><label class="form-label">رقم الهاتف (اختياري)</label><input class="form-input" type="tel" id="newCustPhone" placeholder="07xxxxxxxxx"></div>
+    <div class="form-group"><label class="form-label">مبلغ الدين الابتدائي (اختياري)</label><input class="form-input" type="number" id="newCustDebt" placeholder="0" min="0"></div>
+    <div class="form-group"><label class="form-label">📅 تاريخ استحقاق الدين (اختياري)</label><input class="form-input" type="date" id="newCustDue"></div>
+    <div class="form-group"><label class="form-label">👷 العامل المسؤول</label>
+      <select class="form-input" id="newCustWorker"></select>
+    </div>
+    <button class="submit-btn" onclick="saveNewCustomer()">حفظ الزبون</button>
+    <span class="cancel-link" onclick="closeModal('addCustOverlay')">إلغاء</span>
+  </div>
+</div>
+
+<!-- Debt Form Modal -->
+<div class="overlay" id="debtFormOverlay" onclick="handleOverlayClick(event,'debtFormOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="debtFormTitle">➕ إضافة دين</div>
+    <div class="form-group"><label class="form-label">المبلغ (د.ع) *</label><input class="form-input" type="number" id="debtAmount" placeholder="0" min="1"></div>
+    <div class="form-group"><label class="form-label">ملاحظة (اختياري)</label><input class="form-input" type="text" id="debtNote" placeholder="مثال: بضاعة أسبوع 15"></div>
+    <div class="form-group"><label class="form-label">👷 العامل المنفذ</label>
+      <select class="form-input" id="debtWorker"></select>
+    </div>
+    <button class="submit-btn" id="debtSubmitBtn" onclick="saveDebt()">حفظ</button>
+    <span class="cancel-link" onclick="openDetail(currentCustomerId)">رجوع</span>
+  </div>
+</div>
+
+<!-- Edit Info Modal -->
+<div class="overlay" id="editInfoOverlay" onclick="handleOverlayClick(event,'editInfoOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✏️ تعديل معلومات الزبون</div>
+    <div class="edit-note">⚠️ يمكن تعديل الاسم والهاتف وتاريخ الاستحقاق فقط — سجل الديون محمي.</div>
+    <div class="form-group"><label class="form-label">اسم الزبون *</label><input class="form-input" type="text" id="editCustName"></div>
+    <div class="form-group"><label class="form-label">رقم الهاتف</label><input class="form-input" type="tel" id="editCustPhone"></div>
+    <div class="form-group"><label class="form-label">📅 تاريخ استحقاق الدين</label><input class="form-input" type="date" id="editCustDue"></div>
+    <button class="submit-btn" onclick="saveEditInfo()">حفظ التعديلات</button>
+    <span class="cancel-link" onclick="closeModal('editInfoOverlay')">إلغاء</span>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="overlay" id="changePwOverlay" onclick="handleOverlayClick(event,'changePwOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔑 تغيير كلمة المرور</div>
+    <div class="security-info">🔐 كلمة المرور محفوظة بتشفير SHA-256 — لا أحد يستطيع معرفتها حتى لو وصل للبيانات.</div>
+    <div class="form-group"><label class="form-label">كلمة المرور الحالية</label><input class="form-input" type="password" id="pwCurrent" placeholder="••••"></div>
+    <div class="form-group"><label class="form-label">كلمة المرور الجديدة</label><input class="form-input" type="password" id="pwNew" placeholder="••••"></div>
+    <div class="form-group"><label class="form-label">تأكيد كلمة المرور الجديدة</label><input class="form-input" type="password" id="pwConfirm" placeholder="••••"></div>
+    <button class="submit-btn" onclick="savePassword()">حفظ كلمة المرور</button>
+    <span class="cancel-link" onclick="closeModal('changePwOverlay')">إلغاء</span>
+  </div>
+</div>
+
+<!-- Add/Edit Worker Modal -->
+<div class="overlay" id="workerFormOverlay" onclick="handleOverlayClick(event,'workerFormOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="workerFormTitle">👷 إضافة عامل جديد</div>
+    <div class="security-info">الأرقام المتاحة للهوية: 1 حتى 9 فقط. كل رقم يُحدد هوية العامل في جميع المعاملات.</div>
+    <div class="form-group"><label class="form-label">اسم العامل *</label><input class="form-input" type="text" id="workerName" placeholder="مثال: أبو علي"></div>
+    <div class="form-group"><label class="form-label">رقم الهوية (1-9) *</label>
+      <select class="form-input" id="workerIdSelect"></select>
+    </div>
+    <div class="form-group"><label class="form-label">رقم الهاتف (اختياري)</label><input class="form-input" type="tel" id="workerPhone" placeholder="07xxxxxxxxx"></div>
+    <input type="hidden" id="editWorkerId">
+    <button class="submit-btn" onclick="saveWorker()">حفظ</button>
+    <span class="cancel-link" onclick="closeModal('workerFormOverlay')">إلغاء</span>
+  </div>
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div class="overlay" id="productFormOverlay" onclick="handleOverlayClick(event,'productFormOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="productFormTitle">🛍️ إضافة منتج جديد</div>
+    <div class="form-group"><label class="form-label">اسم المنتج *</label><input class="form-input" type="text" id="productName" placeholder="مثال: أرز بسمتي 5 كيلو"></div>
+    <div class="form-group"><label class="form-label">السعر (د.ع) *</label><input class="form-input" type="number" id="productPrice" placeholder="0" min="0"></div>
+    <div class="form-group"><label class="form-label">التصنيف (اختياري)</label><input class="form-input" type="text" id="productCategory" placeholder="مثال: حبوب، مشروبات، تنظيف..."></div>
+    <div class="form-group"><label class="form-label">الرمز / الأيقونة (اختياري)</label><input class="form-input" type="text" id="productEmoji" placeholder="مثال: 🌾 أو 🧴" maxlength="4"></div>
+    <div class="form-group"><label class="form-label">ملاحظة (اختياري)</label><input class="form-input" type="text" id="productNote" placeholder="مثال: الوزن، المواصفات..."></div>
+    <input type="hidden" id="editProductId">
+    <button class="submit-btn" onclick="saveProduct()">حفظ المنتج</button>
+    <span class="cancel-link" onclick="closeModal('productFormOverlay')">إلغاء</span>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="overlay confirm-overlay" id="confirmOverlay">
+  <div class="modal confirm-modal">
+    <div class="confirm-icon" id="confirmIcon">⚠️</div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="confirm-btns">
+      <button class="confirm-yes" id="confirmYes">تأكيد</button>
+      <button class="confirm-no" id="confirmNo">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// SECURITY: SHA-256 HASH (no external lib needed)
+// ============================================================
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ============================================================
+// AES-256-GCM ENCRYPTION
+// ============================================================
+const AES_KEY_NAME = 'narjes_aes_key';
+
+async function getOrCreateAESKey() {
+  const stored = localStorage.getItem(AES_KEY_NAME);
+  if (stored) {
+    const raw = new Uint8Array(JSON.parse(stored));
+    return crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+  }
+  const key = await crypto.subtle.generateKey({name:'AES-GCM', length:256}, true, ['encrypt','decrypt']);
+  const exported = await crypto.subtle.exportKey('raw', key);
+  localStorage.setItem(AES_KEY_NAME, JSON.stringify(Array.from(new Uint8Array(exported))));
+  return key;
+}
+
+async function encryptData(data) {
+  const key = await getOrCreateAESKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder().encode(JSON.stringify(data));
+  const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc);
+  return JSON.stringify({
+    iv: Array.from(iv),
+    data: Array.from(new Uint8Array(cipher))
+  });
+}
+
+async function decryptData(stored) {
+  try {
+    const key = await getOrCreateAESKey();
+    const parsed = JSON.parse(stored);
+    const iv = new Uint8Array(parsed.iv);
+    const cipher = new Uint8Array(parsed.data);
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, cipher);
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch { return null; }
+}
+
+// ============================================================
+// STORAGE — Firebase Realtime Database (primary) + localStorage (fallback)
+// ============================================================
+async function saveEncrypted(key, data) {
+  const enc = await encryptData(data);
+  // Always save to localStorage as backup
+  localStorage.setItem(key, enc);
+  // Save to Firebase if available
+  try {
+    if (window._fbDb && window._fbRef && window._fbSet) {
+      const dbRef = window._fbRef(window._fbDb, 'app/' + key);
+      await window._fbSet(dbRef, enc);
+    }
+  } catch (e) {
+    console.warn('Firebase save failed, using localStorage only:', e);
+  }
+}
+
+async function loadEncrypted(key, fallback) {
+  // Try Firebase first
+  try {
+    if (window._fbDb && window._fbGet && window._fbRef && window._fbChild) {
+      const dbRef = window._fbRef(window._fbDb, 'app');
+      const snapshot = await window._fbGet(dbRef);
+      if (snapshot.exists()) {
+        const stored = snapshot.val()[key];
+        if (stored) {
+          // Sync to localStorage
+          localStorage.setItem(key, stored);
+          const dec = await decryptData(stored);
+          if (dec !== null) return dec;
+          try { return JSON.parse(stored); } catch { /* fall through */ }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Firebase load failed, falling back to localStorage:', e);
+  }
+  // Fallback: localStorage
+  const stored = localStorage.getItem(key);
+  if (!stored) return fallback;
+  const dec = await decryptData(stored);
+  if (dec !== null) return dec;
+  try { return JSON.parse(stored); } catch { return fallback; }
+}
+
+
+// ============================================================
+// AUTO-LOCK (5 minutes inactivity)
+// ============================================================
+let autoLockTimer = null;
+const AUTO_LOCK_MS = 5 * 60 * 1000;
+
+function resetAutoLock() {
+  clearTimeout(autoLockTimer);
+  autoLockTimer = setTimeout(() => {
+    if (document.getElementById('appContent').style.display !== 'none') {
+      lockApp();
+      showToastRaw('🔒 تم القفل التلقائي بسبب عدم النشاط');
+    }
+  }, AUTO_LOCK_MS);
+}
+['click','keydown','touchstart','mousemove'].forEach(ev =>
+  document.addEventListener(ev, resetAutoLock, {passive:true})
+);
+
+// ============================================================
+// LOGIN ATTEMPTS LOCKOUT
+// ============================================================
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 2 * 60 * 1000; // 2 minutes
+
+function getAttempts() {
+  try { return JSON.parse(localStorage.getItem('narjes_attempts') || '{"count":0,"until":0}'); }
+  catch { return {count:0, until:0}; }
+}
+function saveAttempts(a) { localStorage.setItem('narjes_attempts', JSON.stringify(a)); }
+function resetAttempts() { saveAttempts({count:0, until:0}); }
+
+let lockoutInterval = null;
+function startLockoutCountdown(until) {
+  const btn = document.getElementById('lockBtn');
+  const timerEl = document.getElementById('lockoutTimer');
+  const inp = document.getElementById('lockInput');
+  btn.disabled = true; inp.disabled = true;
+  lockoutInterval = setInterval(() => {
+    const remaining = Math.ceil((until - Date.now()) / 1000);
+    if (remaining <= 0) {
+      clearInterval(lockoutInterval);
+      btn.disabled = false; inp.disabled = false;
+      timerEl.textContent = '';
+      document.getElementById('lockAttempts').textContent = '';
+    } else {
+      timerEl.textContent = `⏳ انتظر ${remaining} ثانية قبل المحاولة مجدداً`;
+    }
+  }, 1000);
+}
+
+// ============================================================
+// PASSWORD (SHA-256 hashed)
+// ============================================================
+const DEFAULT_PW_HASH = '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0'; // "0000"
+
+async function getPasswordHash() {
+  return localStorage.getItem('narjes_pw_hash') || DEFAULT_PW_HASH;
+}
+
+async function checkPassword() {
+  const atts = getAttempts();
+  if (atts.until > Date.now()) {
+    startLockoutCountdown(atts.until); return;
+  }
+  const val = document.getElementById('lockInput').value;
+  const inputHash = await sha256(val);
+  const storedHash = await getPasswordHash();
+
+  if (inputHash === storedHash) {
+    resetAttempts();
+    document.getElementById('lockScreen').classList.add('hidden');
+    document.getElementById('appContent').style.display = 'block';
+    document.getElementById('lockInput').value = '';
+    document.getElementById('lockError').textContent = '';
+    document.getElementById('lockAttempts').textContent = '';
+    resetAutoLock();
+    await initApp();
+  } else {
+    atts.count++;
+    const remaining = MAX_ATTEMPTS - atts.count;
+    if (remaining <= 0) {
+      atts.until = Date.now() + LOCKOUT_MS;
+      saveAttempts(atts);
+      startLockoutCountdown(atts.until);
+      document.getElementById('lockError').textContent = '🚫 تم تجاوز الحد — محظور مؤقتاً';
+    } else {
+      saveAttempts(atts);
+      document.getElementById('lockAttempts').textContent = `⚠️ محاولات متبقية: ${remaining}`;
+      document.getElementById('lockError').textContent = '❌ كلمة المرور غير صحيحة';
+    }
+    const inp = document.getElementById('lockInput');
+    inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake');
+    inp.value = '';
+    setTimeout(() => { document.getElementById('lockError').textContent = ''; }, 2000);
+  }
+}
+
+function lockApp() {
+  document.getElementById('lockScreen').classList.remove('hidden');
+  document.getElementById('appContent').style.display = 'none';
+  document.getElementById('lockInput').value = '';
+  document.getElementById('lockError').textContent = '';
+  clearTimeout(autoLockTimer);
+  ['detailOverlay','addCustOverlay','debtFormOverlay','editInfoOverlay','confirmOverlay','changePwOverlay',
+   'workerFormOverlay','productFormOverlay'].forEach(id => closeModal(id));
+}
+
+function openChangePw() {
+  ['pwCurrent','pwNew','pwConfirm'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('changePwOverlay').classList.add('active');
+}
+
+async function savePassword() {
+  const cur = document.getElementById('pwCurrent').value;
+  const nw = document.getElementById('pwNew').value.trim();
+  const conf = document.getElementById('pwConfirm').value.trim();
+  const curHash = await sha256(cur);
+  const storedHash = await getPasswordHash();
+  if (curHash !== storedHash) { showToast('⚠️ كلمة المرور الحالية خاطئة'); return; }
+  if (!nw || nw.length < 3) { showToast('⚠️ يجب أن تكون 3 أحرف على الأقل'); return; }
+  if (nw !== conf) { showToast('⚠️ كلمتا المرور غير متطابقتين'); return; }
+  const newHash = await sha256(nw);
+  localStorage.setItem('narjes_pw_hash', newHash);
+  closeModal('changePwOverlay');
+  showToast('✅ تم تغيير كلمة المرور بنجاح');
+}
+
+// ============================================================
+// APP STATE
+// ============================================================
+let customers = [];
+let workers = [];
+let products = [];
+let currentCustomerId = null;
+let debtFormMode = 'add';
+let currentFilter = 'all';
+let currentCatFilter = 'all';
+let currentLoggedWorker = null; // worker logged in (if worker, not admin)
+
+async function initApp() {
+  customers = await loadEncrypted('narjes_customers', []);
+  workers = await loadEncrypted('narjes_workers', []);
+  products = await loadEncrypted('narjes_products', []);
+  renderList();
+  renderWorkers();
+  renderProducts();
+  renderCatFilters();
+  updateWorkerSelects();
+  updateCurrentWorkerLabel();
+}
+
+async function save() { await saveEncrypted('narjes_customers', customers); }
+async function saveWorkers() { await saveEncrypted('narjes_workers', workers); }
+async function saveProducts() { await saveEncrypted('narjes_products', products); }
+
+function getCustomer(id) { return customers.find(c => c.id === id); }
+function formatNum(n) { return Number(n).toLocaleString('ar-IQ'); }
+function today() { return new Date().toLocaleDateString('ar-IQ', {year:'numeric',month:'short',day:'numeric'}); }
+function todayISO() { return new Date().toISOString().slice(0,10); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+function showToastRaw(msg) { showToast(msg); }
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function switchPage(pageId, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ============================================================
+// DUE DATE
+// ============================================================
+function getDueStatus(c) {
+  if (!c.dueDate || c.debt === 0) return 'none';
+  const now = new Date(); now.setHours(0,0,0,0);
+  const due = new Date(c.dueDate);
+  const diff = Math.ceil((due - now) / 86400000);
+  if (diff < 0) return 'overdue';
+  if (diff <= 3) return 'due-soon';
+  return 'ok';
+}
+function dueBadgeHTML(c) {
+  if (!c.dueDate || c.debt === 0) return '';
+  const status = getDueStatus(c);
+  const due = new Date(c.dueDate).toLocaleDateString('ar-IQ', {day:'numeric',month:'short'});
+  if (status === 'overdue') return `<span class="due-badge overdue">⏰ متأخر — ${due}</span>`;
+  if (status === 'due-soon') return `<span class="due-badge due-soon">⚠️ يستحق ${due}</span>`;
+  return `<span class="due-badge ok">📅 ${due}</span>`;
+}
+
+// ============================================================
+// WORKERS
+// ============================================================
+function getWorkerById(wid) { return workers.find(w => w.workerId == wid); }
+function getWorkerName(wid) {
+  if (!wid) return '';
+  const w = getWorkerById(wid);
+  return w ? `#${w.workerId} ${w.name}` : `#${wid}`;
+}
+
+function renderWorkers() {
+  const el = document.getElementById('workersList');
+  if (!workers || workers.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="emoji">👷</div><p>لا يوجد عمال بعد</p></div>';
+    return;
+  }
+  const sorted = [...workers].sort((a,b) => a.workerId - b.workerId);
+  el.innerHTML = sorted.map(w => `
+    <div class="worker-card">
+      <div class="worker-info">
+        <div class="worker-badge">${w.emoji||'👷'}<div class="wid">#${w.workerId}</div></div>
+        <div>
+          <div class="worker-name">${w.name}</div>
+          <div class="worker-id-label">هوية العامل: رقم ${w.workerId} · ${w.phone||'بدون هاتف'}</div>
+          <span class="worker-role worker">عامل</span>
+        </div>
+      </div>
+      <div class="worker-actions">
+        <button class="worker-action-btn edit" onclick="openEditWorker('${w.id}')">✏️</button>
+        <button class="worker-action-btn del" onclick="confirmDeleteWorker('${w.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+  updateWorkerSelects();
+}
+
+function updateWorkerSelects() {
+  const opts = '<option value="">— بدون عامل —</option>' +
+    workers.sort((a,b)=>a.workerId-b.workerId).map(w =>
+      `<option value="${w.workerId}">#${w.workerId} — ${w.name}</option>`).join('');
+  ['newCustWorker','debtWorker'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
+}
+
+function updateCurrentWorkerLabel() {
+  const el = document.getElementById('currentWorkerLabel');
+  if (el) el.textContent = 'سجل ديون الزبائن';
+}
+
+function openAddWorker() {
+  document.getElementById('editWorkerId').value = '';
+  document.getElementById('workerName').value = '';
+  document.getElementById('workerPhone').value = '';
+  document.getElementById('workerFormTitle').textContent = '👷 إضافة عامل جديد';
+  populateWorkerIdSelect(null);
+  document.getElementById('workerFormOverlay').classList.add('active');
+}
+
+function openEditWorker(id) {
+  const w = workers.find(x => x.id === id); if (!w) return;
+  document.getElementById('editWorkerId').value = id;
+  document.getElementById('workerName').value = w.name;
+  document.getElementById('workerPhone').value = w.phone||'';
+  document.getElementById('workerFormTitle').textContent = '✏️ تعديل بيانات العامل';
+  populateWorkerIdSelect(w.workerId);
+  document.getElementById('workerFormOverlay').classList.add('active');
+}
+
+function populateWorkerIdSelect(currentId) {
+  const usedIds = workers.map(w => w.workerId);
+  const sel = document.getElementById('workerIdSelect');
+  sel.innerHTML = '';
+  for (let i = 1; i <= 9; i++) {
+    const used = usedIds.includes(i) && i !== currentId;
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = used ? `${i} — مستخدم` : `${i}`;
+    opt.disabled = used;
+    if (i === currentId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function saveWorker() {
+  const name = document.getElementById('workerName').value.trim();
+  if (!name) { showToast('⚠️ أدخل اسم العامل'); return; }
+  const workerId = parseInt(document.getElementById('workerIdSelect').value);
+  const phone = document.getElementById('workerPhone').value.trim();
+  const editId = document.getElementById('editWorkerId').value;
+
+  if (editId) {
+    const w = workers.find(x => x.id === editId); if (!w) return;
+    const conflict = workers.find(x => x.workerId === workerId && x.id !== editId);
+    if (conflict) { showToast('⚠️ هذا الرقم مستخدم من عامل آخر'); return; }
+    w.name = name; w.workerId = workerId; w.phone = phone;
+    showToast('✅ تم تعديل بيانات العامل');
+  } else {
+    if (workers.find(w => w.workerId === workerId)) { showToast('⚠️ هذا الرقم مستخدم بالفعل'); return; }
+    workers.push({ id: uid(), name, workerId, phone, createdAt: today() });
+    showToast(`✅ تم إضافة العامل ${name} — رقم هويته: ${workerId}`);
+  }
+  await saveWorkers();
+  closeModal('workerFormOverlay');
+  renderWorkers();
+  updateWorkerSelects();
+}
+
+function confirmDeleteWorker(id) {
+  const w = workers.find(x => x.id === id); if (!w) return;
+  showConfirm('🗑️', `حذف العامل <strong>${w.name}</strong> (#${w.workerId})?<br><small>سجل معاملاته يبقى محفوظاً</small>`, async () => {
+    workers = workers.filter(x => x.id !== id);
+    await saveWorkers(); renderWorkers(); updateWorkerSelects();
+    showToast('تم حذف العامل');
+  });
+}
+
+// ============================================================
+// PRODUCTS
+// ============================================================
+function renderProducts() {
+  const q = document.getElementById('productSearch')?.value.trim().toLowerCase() || '';
+  let list = [...products];
+  if (q) list = list.filter(p => p.name.toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q));
+  if (currentCatFilter !== 'all') list = list.filter(p => (p.category||'عام') === currentCatFilter);
+  list.sort((a,b) => a.name.localeCompare(b.name,'ar'));
+
+  const el = document.getElementById('productsList');
+  if (list.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="emoji">🛍️</div><p>لا توجد منتجات</p></div>'; return;
+  }
+  el.innerHTML = list.map(p => `
+    <div class="product-card">
+      <div class="product-info">
+        <div class="product-icon">${p.emoji||'📦'}</div>
+        <div class="product-card-inner">
+          <div class="product-price-row">
+            <div>
+              <div class="product-name">${p.name}</div>
+              <div class="product-cat">${p.category||'عام'}${p.note?' · '+p.note:''}</div>
+            </div>
+            <div class="product-price">
+              <div class="price-amount">${formatNum(p.price)}</div>
+              <span class="price-currency">د.ع</span>
+            </div>
+          </div>
+          <div class="product-actions">
+            <button class="product-action-btn edit" onclick="openEditProduct('${p.id}')">✏️ تعديل</button>
+            <button class="product-action-btn del" onclick="confirmDeleteProduct('${p.id}')">🗑️ حذف</button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderCatFilters() {
+  const cats = [...new Set(products.map(p => p.category||'عام'))].filter(Boolean);
+  const el = document.getElementById('catFilter');
+  el.innerHTML = `<button class="cat-chip ${currentCatFilter==='all'?'active':''}" onclick="setCatFilter('all',this)">الكل</button>`;
+  cats.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-chip' + (currentCatFilter===cat?' active':'');
+    btn.textContent = cat;
+    btn.onclick = function(){ setCatFilter(cat, this); };
+    el.appendChild(btn);
+  });
+}
+
+function setCatFilter(cat, el) {
+  currentCatFilter = cat;
+  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderProducts();
+}
+
+function openAddProduct() {
+  ['productName','productPrice','productCategory','productEmoji','productNote'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('editProductId').value = '';
+  document.getElementById('productFormTitle').textContent = '🛍️ إضافة منتج جديد';
+  document.getElementById('productFormOverlay').classList.add('active');
+}
+
+function openEditProduct(id) {
+  const p = products.find(x => x.id === id); if (!p) return;
+  document.getElementById('editProductId').value = id;
+  document.getElementById('productName').value = p.name;
+  document.getElementById('productPrice').value = p.price;
+  document.getElementById('productCategory').value = p.category||'';
+  document.getElementById('productEmoji').value = p.emoji||'';
+  document.getElementById('productNote').value = p.note||'';
+  document.getElementById('productFormTitle').textContent = '✏️ تعديل المنتج';
+  document.getElementById('productFormOverlay').classList.add('active');
+}
+
+async function saveProduct() {
+  const name = document.getElementById('productName').value.trim();
+  const price = parseFloat(document.getElementById('productPrice').value);
+  if (!name) { showToast('⚠️ أدخل اسم المنتج'); return; }
+  if (isNaN(price) || price < 0) { showToast('⚠️ أدخل سعراً صحيحاً'); return; }
+  const category = document.getElementById('productCategory').value.trim()||'عام';
+  const emoji = document.getElementById('productEmoji').value.trim()||'📦';
+  const note = document.getElementById('productNote').value.trim();
+  const editId = document.getElementById('editProductId').value;
+
+  if (editId) {
+    const p = products.find(x => x.id === editId); if (!p) return;
+    Object.assign(p, {name, price, category, emoji, note});
+    showToast('✅ تم تعديل المنتج');
+  } else {
+    products.push({id:uid(), name, price, category, emoji, note, createdAt:today()});
+    showToast(`✅ تم إضافة ${name}`);
+  }
+  await saveProducts();
+  closeModal('productFormOverlay');
+  renderProducts();
+  renderCatFilters();
+}
+
+function confirmDeleteProduct(id) {
+  const p = products.find(x => x.id === id); if (!p) return;
+  showConfirm('🗑️', `حذف المنتج <strong>${p.name}</strong>؟`, async () => {
+    products = products.filter(x => x.id !== id);
+    await saveProducts(); renderProducts(); renderCatFilters();
+    showToast('تم حذف المنتج');
+  });
+}
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+
+function renderList() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const sort = document.getElementById('sortSelect').value;
+  let list = [...customers];
+  if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || (c.phone||'').includes(q));
+  if (currentFilter === 'overdue') list = list.filter(c => getDueStatus(c) === 'overdue');
+  else if (currentFilter === 'due-soon') list = list.filter(c => getDueStatus(c) === 'due-soon');
+  else if (currentFilter === 'has-debt') list = list.filter(c => c.debt > 0);
+  else if (currentFilter === 'settled') list = list.filter(c => c.debt === 0);
+
+  if (sort === 'debt-desc') list.sort((a,b) => b.debt - a.debt);
+  else if (sort === 'debt-asc') list.sort((a,b) => a.debt - b.debt);
+  else if (sort === 'name') list.sort((a,b) => a.name.localeCompare(b.name,'ar'));
+  else if (sort === 'due') list.sort((a,b) => { if(!a.dueDate) return 1; if(!b.dueDate) return -1; return new Date(a.dueDate)-new Date(b.dueDate); });
+
+  const total = customers.reduce((s,c) => s+c.debt, 0);
+  document.getElementById('grandTotal').textContent = formatNum(total);
+  document.getElementById('custCount').textContent = customers.length + ' زبون';
+
+  const el = document.getElementById('customerList');
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">${q?'🔍':'📋'}</div><p>${q?'لا توجد نتائج':'لا يوجد زبائن بعد'}</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(c => {
+    const s = getDueStatus(c);
+    const cls = s==='overdue'?'overdue':s==='due-soon'?'due-soon':'';
+    const workerLabel = c.workerIds && c.workerIds.length>0
+      ? c.workerIds.map(wid => `<span class="worker-tag">👷#${wid}</span>`).join('')
+      : '';
+    return `<div class="customer-card ${cls}" onclick="openDetail('${c.id}')">
+      <div class="cust-info">
+        <div class="cust-avatar ${cls}">${c.name.charAt(0)}</div>
+        <div>
+          <div class="cust-name">${c.name}</div>
+          <div class="cust-meta">${c.phone||'بدون هاتف'} · ${c.createdAt}</div>
+          ${dueBadgeHTML(c)}${workerLabel}
+        </div>
+      </div>
+      <div class="cust-debt">
+        <div class="debt-amount ${c.debt===0?'zero':''}">${formatNum(c.debt)}</div>
+        <span class="debt-currency">د.ع</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// DETAIL
+// ============================================================
+function openDetail(id) {
+  currentCustomerId = id;
+  const c = getCustomer(id); if (!c) return;
+  document.getElementById('detailName').textContent = c.name;
+  document.getElementById('detailSub').textContent = (c.phone||'بدون هاتف') + ' · ' + c.createdAt;
+  const dueEl = document.getElementById('detailDue');
+  if (c.dueDate) {
+    const s = getDueStatus(c);
+    const due = new Date(c.dueDate).toLocaleDateString('ar-IQ',{day:'numeric',month:'long',year:'numeric'});
+    const pre = s==='overdue'?'⏰ متأخر — ':s==='due-soon'?'⚠️ يستحق ':'📅 استحقاق ';
+    dueEl.textContent = pre + due; dueEl.style.display = 'block';
+  } else { dueEl.style.display = 'none'; }
+  document.getElementById('detailTotal').textContent = formatNum(c.debt);
+  const log = document.getElementById('debtLog');
+  if (!c.log || c.log.length === 0) { log.innerHTML = '<div class="no-log">لا توجد معاملات بعد</div>'; }
+  else {
+    log.innerHTML = [...c.log].reverse().map(l => {
+      const workerInfo = l.workerId ? `<div class="debt-item-worker">👷 ${getWorkerName(l.workerId)}</div>` : '';
+      return `<div class="debt-item">
+        <div><div class="debt-item-info">${l.note||'—'}</div><div class="debt-item-note">${l.date}</div>${workerInfo}</div>
+        <div class="debt-item-amount ${l.type==='add'?'plus':'minus'}">${l.type==='add'?'+':'-'}${formatNum(l.amount)} د.ع</div>
+      </div>`;
+    }).join('');
+  }
+  closeModal('addCustOverlay'); closeModal('debtFormOverlay');
+  document.getElementById('detailOverlay').classList.add('active');
+  const waBtn = document.getElementById('whatsappBtn');
+  c.phone ? waBtn.classList.remove('disabled') : waBtn.classList.add('disabled');
+}
+
+// ============================================================
+// ADD CUSTOMER
+// ============================================================
+function openAddCustomer() {
+  ['newCustName','newCustPhone','newCustDebt'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('newCustDue').value = '';
+  updateWorkerSelects();
+  closeModal('detailOverlay');
+  document.getElementById('addCustOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('newCustName').focus(), 300);
+}
+
+async function saveNewCustomer() {
+  const name = document.getElementById('newCustName').value.trim();
+  if (!name) { showToast('⚠️ أدخل اسم الزبون'); return; }
+  const phone = document.getElementById('newCustPhone').value.trim();
+  const debt = parseFloat(document.getElementById('newCustDebt').value)||0;
+  const dueDate = document.getElementById('newCustDue').value||null;
+  const workerSel = document.getElementById('newCustWorker').value;
+  const workerIds = workerSel ? [parseInt(workerSel)] : [];
+  const c = { id:uid(), name, phone, debt, dueDate, createdAt:today(), workerIds,
+    log: debt>0?[{type:'add',amount:debt,note:'دين ابتدائي',date:today(), workerId:workerSel?parseInt(workerSel):null}]:[] };
+  customers.unshift(c); await save(); closeModal('addCustOverlay'); renderList();
+  showToast('✅ تم إضافة ' + name);
+}
+
+// ============================================================
+// DEBT FORM
+// ============================================================
+function openDebtForm(mode) {
+  debtFormMode = mode;
+  document.getElementById('debtAmount').value='';
+  document.getElementById('debtNote').value='';
+  updateWorkerSelects();
+  const isAdd = mode==='add';
+  document.getElementById('debtFormTitle').textContent = isAdd?'➕ إضافة دين':'➖ تنقيص / تسديد';
+  document.getElementById('debtSubmitBtn').textContent = isAdd?'إضافة الدين':'حفظ التسديد';
+  closeModal('detailOverlay');
+  document.getElementById('debtFormOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('debtAmount').focus(), 300);
+}
+
+async function saveDebt() {
+  const amount = parseFloat(document.getElementById('debtAmount').value);
+  if (!amount||amount<=0) { showToast('⚠️ أدخل مبلغاً صحيحاً'); return; }
+  const note = document.getElementById('debtNote').value.trim();
+  const workerSel = document.getElementById('debtWorker').value;
+  const workerId = workerSel ? parseInt(workerSel) : null;
+  const c = getCustomer(currentCustomerId); if (!c) return;
+  if (debtFormMode==='add') {
+    c.debt += amount;
+    c.log.push({type:'add',amount,note:note||'إضافة دين',date:today(),workerId});
+    if (workerId && !c.workerIds) c.workerIds = [];
+    if (workerId && !c.workerIds.includes(workerId)) c.workerIds.push(workerId);
+    showToast('تم إضافة '+formatNum(amount)+' د.ع' + (workerId?` بواسطة #${workerId}`:''));
+  } else {
+    const actual = Math.min(amount,c.debt);
+    c.debt = Math.max(0,c.debt-amount);
+    c.log.push({type:'reduce',amount:actual,note:note||'تسديد',date:today(),workerId});
+    showToast('تسديد '+formatNum(actual)+' د.ع' + (workerId?` بواسطة #${workerId}`:''));
+  }
+  await save(); closeModal('debtFormOverlay'); renderList(); openDetail(currentCustomerId);
+}
+
+async function confirmClearDebt() {
+  const c = getCustomer(currentCustomerId);
+  showConfirm('✅',`تصفية دين <strong>${c.name}</strong> كاملاً؟<br>المبلغ: ${formatNum(c.debt)} د.ع`, async () => {
+    c.log.push({type:'reduce',amount:c.debt,note:'تصفية الدين كاملاً',date:today()});
+    c.debt=0; await save(); renderList(); openDetail(currentCustomerId); showToast('✅ تم تصفية الدين');
+  });
+}
+
+async function confirmDeleteCustomer() {
+  const c = getCustomer(currentCustomerId);
+  showConfirm('🗑️',`حذف <strong>${c.name}</strong> نهائياً؟`, async () => {
+    customers = customers.filter(x=>x.id!==currentCustomerId);
+    await save(); closeModal('detailOverlay'); renderList(); showToast('تم الحذف');
+  });
+}
+
+// ============================================================
+// EDIT INFO
+// ============================================================
+function openEditInfo() {
+  const c = getCustomer(currentCustomerId); if (!c) return;
+  document.getElementById('editCustName').value = c.name;
+  document.getElementById('editCustPhone').value = c.phone||'';
+  document.getElementById('editCustDue').value = c.dueDate||'';
+  document.getElementById('editInfoOverlay').classList.add('active');
+}
+async function saveEditInfo() {
+  const name = document.getElementById('editCustName').value.trim();
+  if (!name) { showToast('⚠️ أدخل اسم الزبون'); return; }
+  const c = getCustomer(currentCustomerId); if (!c) return;
+  c.name = name;
+  c.phone = document.getElementById('editCustPhone').value.trim();
+  c.dueDate = document.getElementById('editCustDue').value||null;
+  await save(); closeModal('editInfoOverlay'); renderList(); openDetail(currentCustomerId);
+  showToast('✅ تم حفظ التعديلات');
+}
+
+// ============================================================
+// WHATSAPP
+// ============================================================
+function sendWhatsApp() {
+  const c = getCustomer(currentCustomerId);
+  if (!c||!c.phone) { showToast('⚠️ لا يوجد رقم هاتف'); return; }
+  let phone = c.phone.replace(/\D/g,'');
+  if (phone.startsWith('0')) phone='964'+phone.slice(1);
+  else if (!phone.startsWith('964')) phone='964'+phone;
+  let dueText = '';
+  if (c.dueDate) {
+    const due = new Date(c.dueDate).toLocaleDateString('ar-IQ',{day:'numeric',month:'long',year:'numeric'});
+    dueText = `\n📅 تاريخ الاستحقاق: *${due}*`;
+  }
+  const msg = `🌸 *أسواق النرجس*\n━━━━━━━━━━━━━━\nالسيد/ة: *${c.name}*\n\nالمبلغ المستحق عليكم:\n💰 *${formatNum(c.debt)} د.ع*${dueText}\n\nنرجو التكرم بالتسديد في أقرب وقت.\nشكراً لتعاملكم معنا 🙏`;
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+
+// ============================================================
+// PRINT
+// ============================================================
+function printCustomer() {
+  const c = getCustomer(currentCustomerId); if (!c) return;
+  const due = c.dueDate ? new Date(c.dueDate).toLocaleDateString('ar-IQ',{day:'numeric',month:'long',year:'numeric'}) : '—';
+  const logHTML = (!c.log||c.log.length===0) ? '<tr><td colspan="4" style="text-align:center;padding:14px;color:#999">لا توجد معاملات</td></tr>' :
+    [...c.log].reverse().map(l=>`<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee">${l.date}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee">${l.note||'—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;color:#555">${l.workerId?getWorkerName(l.workerId):'—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:700;direction:ltr;color:${l.type==='add'?'#c0392b':'#1a6b3c'}">
+        ${l.type==='add'?'+':'-'}${formatNum(l.amount)} د.ع</td></tr>`).join('');
+  document.getElementById('printArea').innerHTML = `
+    <div style="font-family:Tajawal,sans-serif;direction:rtl;max-width:600px;margin:0 auto">
+      <div style="background:#1a6b3c;color:#fff;padding:18px 22px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:22px;font-weight:900">💳 إدارة الديون الذكي</div><div style="font-size:12px;opacity:0.7">كشف حساب زبون — ${today()}</div></div>
+        <div style="text-align:left;direction:ltr"><div style="font-size:26px;font-weight:900">${formatNum(c.debt)}</div><div style="font-size:11px;opacity:0.7">د.ع</div></div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:14px">
+        <tr><td style="padding:8px;color:#666;width:35%">الاسم</td><td style="padding:8px;font-weight:700">${c.name}</td></tr>
+        <tr><td style="padding:8px;color:#666">الهاتف</td><td style="padding:8px">${c.phone||'—'}</td></tr>
+        <tr><td style="padding:8px;color:#666">تاريخ الاستحقاق</td><td style="padding:8px">${due}</td></tr>
+      </table>
+      <div style="font-weight:900;margin-bottom:10px">📋 سجل المعاملات</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:#f5f0e8">
+          <th style="padding:8px 10px;text-align:right">التاريخ</th>
+          <th style="padding:8px 10px;text-align:right">الملاحظة</th>
+          <th style="padding:8px 10px;text-align:right">العامل</th>
+          <th style="padding:8px 10px;text-align:right">المبلغ</th>
+        </tr></thead>
+        <tbody>${logHTML}</tbody>
+      </table>
+    </div>`;
+  window.print();
+}
+
+function printAllDebts() {
+  const list = [...customers].filter(c=>c.debt>0).sort((a,b)=>b.debt-a.debt);
+  if (list.length===0) { showToast('⚠️ لا توجد ديون للطباعة'); return; }
+  const total = list.reduce((s,c)=>s+c.debt,0);
+  const rows = list.map((c,i)=>{
+    const due = c.dueDate?new Date(c.dueDate).toLocaleDateString('ar-IQ',{day:'numeric',month:'short'}):'—';
+    const s = getDueStatus(c);
+    const color = s==='overdue'?'#c0392b':s==='due-soon'?'#e67e22':'inherit';
+    const workerLabel = c.workerIds&&c.workerIds.length>0 ? c.workerIds.map(wid=>`#${wid}`).join('،') : '—';
+    return `<tr>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee">${i+1}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;font-weight:700;color:${color}">${c.name}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee">${c.phone||'—'}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;color:#555">${workerLabel}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;direction:ltr;font-weight:700;color:#c0392b">${formatNum(c.debt)}</td>
+      <td style="padding:9px 10px;border-bottom:1px solid #eee;color:${color}">${due}</td></tr>`;
+  }).join('');
+  document.getElementById('printArea').innerHTML = `
+    <div style="font-family:Tajawal,sans-serif;direction:rtl">
+      <div style="background:#1a6b3c;color:#fff;padding:18px 22px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:22px;font-weight:900">💳 إدارة الديون الذكي — كشف الديون</div><div style="font-size:12px;opacity:0.7">بتاريخ: ${today()}</div></div>
+        <div style="text-align:left;direction:ltr"><div style="font-size:11px;opacity:0.7">الإجمالي</div><div style="font-size:24px;font-weight:900">${formatNum(total)} د.ع</div></div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="background:#f5f0e8">
+          <th style="padding:8px 10px;text-align:right">#</th>
+          <th style="padding:8px 10px;text-align:right">الاسم</th>
+          <th style="padding:8px 10px;text-align:right">الهاتف</th>
+          <th style="padding:8px 10px;text-align:right">العامل</th>
+          <th style="padding:8px 10px;text-align:right">الدين (د.ع)</th>
+          <th style="padding:8px 10px;text-align:right">الاستحقاق</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:#e8f5ee;font-weight:900">
+          <td colspan="4" style="padding:10px">الإجمالي</td>
+          <td style="padding:10px;direction:ltr;color:#1a6b3c">${formatNum(total)} د.ع</td><td></td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+  window.print();
+}
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+async function exportData() {
+  const blob = new Blob([JSON.stringify({app:'إدارة الديون الذكي',exportDate:today(),customers,workers,products},null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download=`narjes-backup-${todayISO()}.json`;
+  a.click(); URL.revokeObjectURL(a.href); showToast('✅ تم تصدير النسخة الاحتياطية');
+}
+
+function importData(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.customers||!Array.isArray(data.customers)) { showToast('⚠️ الملف غير صالح'); return; }
+      showConfirm('📥',`استيراد <strong>${data.customers.length}</strong> زبون.<br><small>تأكيد = استبدال · إلغاء = دمج</small>`, async () => {
+        customers=data.customers;
+        if (data.workers) workers=data.workers;
+        if (data.products) products=data.products;
+        await save(); await saveWorkers(); await saveProducts();
+        renderList(); renderWorkers(); renderProducts(); renderCatFilters();
+        showToast('✅ تم الاستيراد');
+      });
+      document.getElementById('confirmNo').onclick = async () => {
+        const ids = new Set(customers.map(c=>c.id));
+        customers=[...customers,...data.customers.filter(c=>!ids.has(c.id))];
+        await save(); renderList(); closeModal('confirmOverlay'); showToast('✅ تم الدمج');
+      };
+    } catch { showToast('⚠️ خطأ في قراءة الملف'); }
+  };
+  reader.readAsText(file); event.target.value='';
+}
+
+// ============================================================
+// CONFIRM
+// ============================================================
+function showConfirm(icon, msg, onYes) {
+  document.getElementById('confirmIcon').textContent = icon;
+  document.getElementById('confirmMsg').innerHTML = msg;
+  document.getElementById('confirmYes').onclick = () => { onYes(); closeModal('confirmOverlay'); };
+  document.getElementById('confirmNo').onclick = () => closeModal('confirmOverlay');
+  document.getElementById('confirmOverlay').classList.add('active');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function handleOverlayClick(e,id) { if(e.target.id===id) closeModal(id); }
+
+// ============================================================
+// INIT CHECK — if locked out, start timer
+// ============================================================
+const atts = getAttempts();
+if (atts.until > Date.now()) {
+  startLockoutCountdown(atts.until);
+}
+</script>
+</body>
+</html>

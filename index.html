@@ -19,12 +19,17 @@
     appId: "1:29376570807:web:e9730121b61fc05f37f432",
     measurementId: "G-0SF79HRTYD"
   };
-
   // تهيئة Firebase
   if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
   }
   const database = firebase.database();
+  // كود تجريبي للتأكد من اتصال قاعدة البيانات
+database.ref('test_connection').set({
+  status: "success",
+  message: "تم الربط بنجاح!",
+  time: new Date().toLocaleString()
+});
 </script>
 
 
